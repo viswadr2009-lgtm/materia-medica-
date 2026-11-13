@@ -1,4 +1,5 @@
 import json, os, re, html, urllib.request, psycopg2
+from urllib.parse import urljoin
 from concurrent.futures import ThreadPoolExecutor
 
 conn = psycopg2.connect(dbname="oorep", user="oorep_user", password="oorep", host="localhost")
@@ -99,6 +100,7 @@ def fetch_url(url):
 
 def clean_html(s):
   s = re.sub(r"(?is)<(script|style).*?>.*?</\1>", "", s)
+  s = re.sub(r"(?i)<b[^>]*>\s*([^<]{2,45})\s*</b>", r"\n###\1\n", s)
   s = re.sub(r"(?i)<br\s*/?>", "\n", s)
   s = re.sub(r"(?i)</(p|div|li|h[1-6]|tr)>", "\n", s)
   s = re.sub(r"<[^>]+>", " ", s)
@@ -107,39 +109,49 @@ def clean_html(s):
   return "\n".join(ln for ln in lines if ln)
 
 def scrape_homeoint(base_url, abbrev, title, author, id_offset):
+  idx_url = base_url + "index.htm"
   try:
-    idx_html = fetch_url(base_url + "index.htm")
+    idx_html = fetch_url(idx_url)
   except Exception as e:
     print(f"Failed index {base_url}: {e}")
     return
-  links = re.findall(r'href=["\']([a-zA-Z0-9_-]+\.htm)["\'][^>]*>(.*?)</a>', idx_html, re.I | re.S)
+  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>]+\.htm)["\']?[^>]*>(.*?)</a>', idx_html, re.I | re.S)
   seen, targets = set(), []
   for href, label in links:
-    low = href.lower()
-    if low in ("index.htm", "preface.htm", "intro.htm") or href in seen:
+    full_url = urljoin(idx_url, href)
+    if not full_url.startswith(base_url):
+      continue
+    fname = full_url.split("/")[-1].lower()
+    if fname in ("index.htm", "preface.htm", "intro.htm", "author.htm") or full_url in seen:
       continue
     name = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html.unescape(label))).strip()
-    if not name or len(name) < 2:
+    if not name or len(name) < 2 or name.lower() in ("main", "home", "buy a copy", "english", "français"):
       continue
-    seen.add(href)
-    targets.append((href, name))
+    seen.add(full_url)
+    targets.append((full_url, name))
 
   def load_one(item):
-    href, name = item
+    url, name = item
     try:
-      page = fetch_url(base_url + href)
+      page = fetch_url(url)
       body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
       body = body_m.group(1) if body_m else page
       text = clean_html(body)
-      chunks = [c.strip() for c in text.split("\n") if len(c.strip()) > 3]
+      chunks = [c.strip() for c in text.split("\n") if len(c.strip()) > 2]
       filtered = [c for c in chunks if not any(x in c.lower() for x in (
         "copyright ©", "homéopathe international", "presented by", "médi-t",
-        "h.i. english", "h.i. français", "buy a copy", "main"
+        "h.i. english", "h.i. français", "buy a copy", "robert séror"
       ))]
-      secs = []
-      buf = []
-      cur_h = "Overview"
+      secs, buf, cur_h = [], [], "Overview"
       for line in filtered:
+        if line.startswith("###"):
+          cand = line[3:].strip(" .:-")
+          if 2 <= len(cand) <= 45 and cand.lower() != name.lower():
+            if buf:
+              secs.append({"h": cur_h, "t": "\n".join(buf)})
+              buf = []
+            cur_h = cand
+          continue
         if len(line) < 42 and (line.endswith(".") or line.endswith(":")) and line[0].isupper():
           if buf:
             secs.append({"h": cur_h, "t": "\n".join(buf)})
