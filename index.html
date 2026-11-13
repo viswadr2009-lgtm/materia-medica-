@@ -228,7 +228,7 @@
       state.currentBook = info;
       state.activeEntry = null;
       $('remList').innerHTML = `<div class="status">Loading ${esc(info.title)}...</div>`;
-      state.entries = await fetchCached('data/' + info.file);
+      state.entries = await fetchCached('data/' + info.file + '?v=5&c=' + info.count);
       renderIndex();
       if ($('symSearchInput').value.trim()) renderSymSearch();
     }
