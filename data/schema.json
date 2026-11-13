@@ -1,0 +1,149 @@
+{
+  "activity": [
+    "memer_id",
+    "time_from",
+    "time_to",
+    "account_type",
+    "amount_paid"
+  ],
+  "caze": [
+    "id",
+    "header",
+    "member_id",
+    "date_",
+    "changed",
+    "description"
+  ],
+  "cazerubric": [
+    "id",
+    "cazeid",
+    "weight",
+    "label"
+  ],
+  "cazesubrubric": [
+    "id",
+    "cazerubricid",
+    "abbrev",
+    "rubricid"
+  ],
+  "chapter": [
+    "abbrev",
+    "id",
+    "textt"
+  ],
+  "emailhistory": [
+    "id",
+    "date_",
+    "email",
+    "purpose"
+  ],
+  "file": [
+    "id",
+    "header",
+    "member_id",
+    "date_",
+    "changed",
+    "description",
+    "case_ids"
+  ],
+  "info": [
+    "abbrev",
+    "title",
+    "languag",
+    "authorlastname",
+    "authorfirstname",
+    "yearr",
+    "publisher",
+    "license",
+    "edition",
+    "access",
+    "displaytitle"
+  ],
+  "member": [
+    "member_id",
+    "member_name",
+    "hash",
+    "realname",
+    "email",
+    "mobile",
+    "country",
+    "company",
+    "title",
+    "student_until",
+    "profession",
+    "lastseen",
+    "numberoflogins",
+    "access",
+    "isadmin",
+    "bannedsince"
+  ],
+  "mmchapter": [
+    "id",
+    "mminfo_id",
+    "heading",
+    "remedy_id"
+  ],
+  "mminfo": [
+    "id",
+    "abbrev",
+    "lang",
+    "fulltitle",
+    "authorlastname",
+    "authorfirstname",
+    "publisher",
+    "yearr",
+    "license",
+    "access",
+    "displaytitle"
+  ],
+  "mmsection": [
+    "id",
+    "mmchapter_id",
+    "depth",
+    "parent_sec_id",
+    "succ_sec_id",
+    "heading",
+    "content"
+  ],
+  "passwordchangerequest": [
+    "id",
+    "date_",
+    "member_id"
+  ],
+  "play_evolutions": [
+    "id",
+    "hash",
+    "applied_at",
+    "apply_script",
+    "revert_script",
+    "state",
+    "last_problem"
+  ],
+  "remedy": [
+    "id",
+    "nameabbrev",
+    "namelong",
+    "namealt"
+  ],
+  "remedyinfo": [
+    "remedyid",
+    "addefor"
+  ],
+  "rubric": [
+    "abbrev",
+    "id",
+    "mother",
+    "ismother",
+    "chapterid",
+    "fullpath",
+    "path",
+    "textt"
+  ],
+  "rubricremedy": [
+    "abbrev",
+    "rubricid",
+    "remedyid",
+    "weight",
+    "chapterid"
+  ]
+}
