@@ -116,8 +116,7 @@ def scrape_allen():
     print("Failed Allen index:", e)
     return
   links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>#]+\.htm)(?:#[^"\'\s>]*)?["\']?[^>]*>', idx_html, re.I)
-  urls = []
-  seen = set()
+  urls, seen = [], set()
   for href in links:
     u = urljoin(idx_url, href)
     fn = u.split("/")[-1].lower()
@@ -130,7 +129,8 @@ def scrape_allen():
       page = fetch_url(u)
       body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
       text = clean_html(body_m.group(1) if body_m else page)
-      blocks = re.split(r"(?im)^(?:###\s*)?Keynotes by H\.C\. Allen\s*$", text)
+      text = re.sub(r"(?i)(?:###\s*)?Keynotes\s+by\s+H\.?\s*C\.?\s*Allen", "\n===REMEDY===\n", text)
+      blocks = text.split("===REMEDY===")
       out = []
       for blk in blocks:
         lines = [ln.lstrip("#").strip() for ln in blk.splitlines() if ln.strip()]
