@@ -136,7 +136,7 @@
     </section>
 
     <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px;">
-      Powered by open-source <a href="https://www.oorep.com/" target="_blank" style="color:var(--primary);">OOREP</a> data (GPL-3.0). Educational &amp; reference tool only.
+      Powered by open-source <a href="https://www.oorep.com/" target="_blank" style="color:var(--primary);">OOREP</a> &amp; public-domain texts. Educational &amp; reference tool only.
     </p>
   </main>
 
@@ -184,6 +184,17 @@
       idbSet(url, data);
       return data;
     }
+    async function fetchManifest(url) {
+      try {
+        const r = await fetch(url + '?t=' + Date.now());
+        if (r.ok) {
+          const data = await r.json();
+          idbSet(url, data);
+          return data;
+        }
+      } catch (e) {}
+      return await idbGet(url);
+    }
 
     function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -198,12 +209,12 @@
     async function init() {
       $('remList').innerHTML = '<div class="status">Loading Materia Medica index...</div>';
       try {
-        const manifest = await fetchCached('data/mm_manifest.json');
-        state.manifest = manifest;
-        $('bookSelect').innerHTML = manifest.map(m =>
+        const manifest = await fetchManifest('data/mm_manifest.json');
+        state.manifest = manifest || [];
+        $('bookSelect').innerHTML = state.manifest.map(m =>
           `<option value="${m.abbrev}">${m.title} (${m.count})</option>`
         ).join('');
-        const boer = manifest.find(m => m.abbrev.toLowerCase().includes('boericke')) || manifest[0];
+        const boer = state.manifest.find(m => m.abbrev.toLowerCase().includes('boericke')) || state.manifest[0];
         if (boer) { $('bookSelect').value = boer.abbrev; await loadBook(boer.abbrev); }
         buildAZ();
       } catch (e) {
@@ -242,7 +253,7 @@
         <button class="rem-row" onclick="openEntry(${e.id})">
           <div>
             <div class="rem-name">${esc(e.n || e.h)}</div>
-            ${e.a ? `<div class="rem-abbr">${esc(e.a)} · ${e.s.length} sections</div>` : ''}
+            <div class="rem-abbr">${e.a ? esc(e.a) + ' · ' : ''}${e.s.length} sections</div>
           </div>
           <span style="color:var(--muted)">›</span>
         </button>
@@ -276,7 +287,7 @@
         <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
           <div>
             <div class="rem-name" style="font-size:18px;">${esc(e.n || e.h)}</div>
-            <div class="rem-abbr">${esc(e.a)} · ${esc(state.currentBook.title)}</div>
+            <div class="rem-abbr">${e.a ? esc(e.a) + ' · ' : ''}${esc(state.currentBook.title)}</div>
           </div>
           <button class="btn-sm ${isBm ? 'added' : ''}" onclick="toggleBm(${e.id})">${isBm ? '★ Saved' : '☆ Save'}</button>
         </div>
@@ -340,7 +351,7 @@
       $('symResults').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${hits.length} matching sections</div>` +
         slice.map(hit => `
           <div class="card" style="cursor:pointer;" onclick="openEntry(${hit.e.id}, ${hit.idx})">
-            <div class="rem-name">${esc(hit.e.n || hit.e.h)} <span class="rem-abbr">(${esc(hit.e.a)})</span></div>
+            <div class="rem-name">${esc(hit.e.n || hit.e.h)} ${hit.e.a ? `<span class="rem-abbr">(${esc(hit.e.a)})</span>` : ''}</div>
             ${hit.h ? `<div class="sec-title" style="margin-top:4px;font-size:12px;">${esc(hit.h)}</div>` : ''}
             <div style="font-size:13px;line-height:1.5;margin-top:4px;">${highlight(hit.snip, terms)}</div>
           </div>
@@ -354,7 +365,7 @@
       if (!state.bookmarks.length) { $('bmList').innerHTML = '<div class="status">No saved remedies yet. Open any remedy and tap ☆ Save.</div>'; return; }
       $('bmList').innerHTML = '<div class="list-box">' + state.bookmarks.map(b => `
         <button class="rem-row" onclick="jumpBookmark('${esc(b.book)}', ${b.id})">
-          <div><div class="rem-name">${esc(b.n)}</div><div class="rem-abbr">${esc(b.a)} · ${esc(b.book)}</div></div>
+          <div><div class="rem-name">${esc(b.n)}</div><div class="rem-abbr">${b.a ? esc(b.a) + ' · ' : ''}${esc(b.book)}</div></div>
           <span style="color:var(--muted)">›</span>
         </button>
       `).join('') + '</div>';
