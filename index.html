@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Materia Medica" />
+  <title>Homeopathic Materia Medica</title>
+  <style>
+    :root {
+      --bg: #f3f5f8; --card: #ffffff; --text: #1e293b; --muted: #64748b;
+      --border: #d9e1ea; --nav-bg: #3b5b70; --nav-sub: #4f738a;
+      --nav-active: #274050; --primary: #0f766e; --primary-soft: #ccfbf1;
+      --hl: #fef08a; --hl-text: #713f12;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+    body.dark {
+      --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8;
+      --border: #334155; --nav-bg: #162433; --nav-sub: #1e3348;
+      --nav-active: #0f172a; --primary: #2dd4bf; --primary-soft: #134e4a;
+      --hl: #854d0e; --hl-text: #fef9c3;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background: var(--bg); color: var(--text);
+      padding-bottom: calc(20px + var(--safe-bot));
+    }
+    .topbar {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--nav-bg); color: #fff;
+      padding-top: var(--safe-top);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .nav-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .nav-item {
+      background: transparent; border: none; color: rgba(255,255,255,0.85);
+      padding: 8px 4px; font-size: 11px; font-weight: 600;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      border-right: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+    }
+    .nav-item.active { background: var(--nav-active); color: #fff; }
+    .nav-item .ico { font-size: 16px; line-height: 1; }
+    .subbar {
+      background: var(--nav-sub); padding: 7px 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .subbar-title { font-size: 14px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub-btn {
+      background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .book-select {
+      max-width: 155px; background: rgba(0,0,0,0.22); color: #fff;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 5px 6px; font-size: 12px;
+    }
+    .container { padding: 10px; max-width: 820px; margin: 0 auto; }
+    .search-box {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+      font-size: 15px; margin-bottom: 8px;
+    }
+    .az-bar { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 4px; }
+    .az-btn {
+      min-width: 30px; padding: 5px 7px; border-radius: 7px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .az-btn.active { background: var(--nav-bg); color: #fff; border-color: var(--nav-bg); }
+    .list-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .rem-row {
+      width: 100%; background: var(--card); border: none; border-bottom: 1px solid var(--border);
+      padding: 11px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      color: var(--text); text-align: left; cursor: pointer;
+    }
+    .rem-row:last-child { border-bottom: none; }
+    .rem-name { font-size: 15px; font-weight: 700; }
+    .rem-abbr { font-size: 12px; color: var(--primary); font-weight: 700; margin-top: 2px; }
+    .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; }
+    .chip {
+      white-space: nowrap; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: var(--card); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .sec-title { font-size: 14px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .sec-body { font-size: 15px; line-height: 1.6; white-space: pre-wrap; }
+    .btn-sm {
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px; font-weight: 700;
+      background: var(--primary-soft); color: var(--primary); cursor: pointer;
+    }
+    .btn-sm.added { background: var(--nav-bg); color: #fff; border-color: var(--nav-bg); }
+    mark { background: var(--hl); color: var(--hl-text); padding: 0 2px; border-radius: 3px; }
+    .status { text-align: center; padding: 26px 12px; color: var(--muted); font-size: 14px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="nav-grid">
+      <button class="nav-item active" data-tab="index"><span class="ico">📚</span>Remedies</button>
+      <button class="nav-item" data-tab="search"><span class="ico">🔍</span>Symptom Search</button>
+      <button class="nav-item" data-tab="bookmarks"><span class="ico">★</span>Bookmarks</button>
+    </div>
+    <div class="subbar">
+      <button class="sub-btn hidden" id="backBtn">↩ Back</button>
+      <span class="subbar-title" id="subTitle">Remedies A–Z</span>
+      <select id="bookSelect" class="book-select"></select>
+      <button class="sub-btn" id="themeBtn">◐</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="view-index">
+      <div id="indexListWrap">
+        <input id="remFilter" class="search-box" type="search" placeholder="Filter remedy name or abbreviation (e.g. Puls, Nux)..." />
+        <div class="az-bar" id="azBar"></div>
+        <div id="remList"></div>
+      </div>
+      <div id="readerWrap" class="hidden"></div>
+    </section>
+
+    <section id="view-search" class="hidden">
+      <input id="symSearchInput" class="search-box" type="search" placeholder="Search symptoms across all remedies (e.g. worse after sleep, thirstless)..." />
+      <div id="symResults"></div>
+    </section>
+
+    <section id="view-bookmarks" class="hidden">
+      <div id="bmList"></div>
+    </section>
+
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:20px;">
+      Powered by open-source <a href="https://www.oorep.com/" target="_blank" style="color:var(--primary);">OOREP</a> data (GPL-3.0). Educational &amp; reference tool only.
+    </p>
+  </main>
+
+  <script>
+    const state = {
+      manifest: [], currentBook: null, entries: [], letter: 'ALL',
+      activeEntry: null, bookmarks: JSON.parse(localStorage.getItem('mm_bm') || '[]'),
+      searchLimit: 50
+    };
+    const $ = id => document.getElementById(id);
+    if (localStorage.getItem('mm_dark') === '1') document.body.classList.add('dark');
+    $('themeBtn').onclick = () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('mm_dark', document.body.classList.contains('dark') ? '1' : '0');
+    };
+
+    function idbGet(key) {
+      return new Promise(res => {
+        const req = indexedDB.open('mm_cache', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onsuccess = () => {
+          const tx = req.result.transaction('kv', 'readonly');
+          const g = tx.objectStore('kv').get(key);
+          g.onsuccess = () => res(g.result); g.onerror = () => res(null);
+        };
+        req.onerror = () => res(null);
+      });
+    }
+    function idbSet(key, val) {
+      return new Promise(res => {
+        const req = indexedDB.open('mm_cache', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onsuccess = () => {
+          const tx = req.result.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(val, key); tx.oncomplete = () => res();
+        };
+        req.onerror = () => res();
+      });
+    }
+    async function fetchCached(url) {
+      const cached = await idbGet(url);
+      if (cached) return cached;
+      const r = await fetch(url);
+      const data = await r.json();
+      idbSet(url, data);
+      return data;
+    }
+
+    function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    function buildAZ() {
+      const letters = ['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+      $('azBar').innerHTML = letters.map(l =>
+        `<button class="az-btn ${state.letter === l ? 'active' : ''}" onclick="setLetter('${l}')">${l}</button>`
+      ).join('');
+    }
+    window.setLetter = l => { state.letter = l; buildAZ(); renderIndex(); };
+
+    async function init() {
+      $('remList').innerHTML = '<div class="status">Loading Materia Medica index...</div>';
+      try {
+        const manifest = await fetchCached('data/mm_manifest.json');
+        state.manifest = manifest;
+        $('bookSelect').innerHTML = manifest.map(m =>
+          `<option value="${m.abbrev}">${m.title} (${m.count})</option>`
+        ).join('');
+        const boer = manifest.find(m => m.abbrev.toLowerCase().includes('boericke')) || manifest[0];
+        if (boer) { $('bookSelect').value = boer.abbrev; await loadBook(boer.abbrev); }
+        buildAZ();
+      } catch (e) {
+        $('remList').innerHTML = '<div class="status">Could not load database yet. Refresh in a moment.</div>';
+      }
+    }
+
+    async function loadBook(abbrev) {
+      const info = state.manifest.find(m => m.abbrev === abbrev);
+      if (!info) return;
+      state.currentBook = info;
+      state.activeEntry = null;
+      $('remList').innerHTML = `<div class="status">Loading ${esc(info.title)}...</div>`;
+      state.entries = await fetchCached('data/' + info.file);
+      renderIndex();
+      if ($('symSearchInput').value.trim()) renderSymSearch();
+    }
+    $('bookSelect').onchange = e => loadBook(e.target.value);
+
+    function renderIndex() {
+      if (state.activeEntry) { renderReader(); return; }
+      $('indexListWrap').classList.remove('hidden');
+      $('readerWrap').classList.add('hidden');
+      $('backBtn').classList.add('hidden');
+      $('subTitle').textContent = 'Remedies A–Z';
+
+      const q = $('remFilter').value.trim().toLowerCase();
+      let list = state.entries;
+      if (state.letter !== 'ALL') {
+        list = list.filter(e => (e.n || e.h || '').toUpperCase().startsWith(state.letter));
+      }
+      if (q) {
+        list = list.filter(e => (e.n + ' ' + e.a + ' ' + e.h).toLowerCase().includes(q));
+      }
+      $('remList').innerHTML = list.length ? '<div class="list-box">' + list.map(e => `
+        <button class="rem-row" onclick="openEntry(${e.id})">
+          <div>
+            <div class="rem-name">${esc(e.n || e.h)}</div>
+            ${e.a ? `<div class="rem-abbr">${esc(e.a)} · ${e.s.length} sections</div>` : ''}
+          </div>
+          <span style="color:var(--muted)">›</span>
+        </button>
+      `).join('') + '</div>' : '<div class="status">No matching remedies.</div>';
+    }
+    $('remFilter').oninput = renderIndex;
+
+    window.openEntry = (id, secIdx) => {
+      const e = state.entries.find(x => x.id === id);
+      if (!e) return;
+      state.activeEntry = e;
+      switchTab('index');
+      renderReader(secIdx);
+    };
+
+    function renderReader(scrollSecIdx) {
+      const e = state.activeEntry;
+      if (!e) return;
+      $('indexListWrap').classList.add('hidden');
+      $('readerWrap').classList.remove('hidden');
+      $('backBtn').classList.remove('hidden');
+      $('subTitle').textContent = e.a || e.n;
+
+      const bmKey = `${state.currentBook.abbrev}:${e.id}`;
+      const isBm = state.bookmarks.some(b => b.key === bmKey);
+      const secPills = e.s.map((sec, idx) =>
+        sec.h ? `<button class="chip" onclick="document.getElementById('sec-${idx}').scrollIntoView({behavior:'smooth',block:'start'})">${esc(sec.h)}</button>` : ''
+      ).join('');
+
+      $('readerWrap').innerHTML = `
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div>
+            <div class="rem-name" style="font-size:18px;">${esc(e.n || e.h)}</div>
+            <div class="rem-abbr">${esc(e.a)} · ${esc(state.currentBook.title)}</div>
+          </div>
+          <button class="btn-sm ${isBm ? 'added' : ''}" onclick="toggleBm(${e.id})">${isBm ? '★ Saved' : '☆ Save'}</button>
+        </div>
+        ${secPills ? `<div class="chips">${secPills}</div>` : ''}
+        ${e.s.map((sec, idx) => `
+          <div class="card" id="sec-${idx}">
+            ${sec.h ? `<div class="sec-title">${esc(sec.h)}</div>` : ''}
+            <div class="sec-body">${esc(sec.t)}</div>
+          </div>
+        `).join('')}
+      `;
+      if (scrollSecIdx !== undefined && $('sec-' + scrollSecIdx)) {
+        setTimeout(() => $('sec-' + scrollSecIdx).scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      } else {
+        window.scrollTo(0, 0);
+      }
+    }
+
+    $('backBtn').onclick = () => { state.activeEntry = null; renderIndex(); };
+
+    window.toggleBm = id => {
+      const e = state.entries.find(x => x.id === id); if (!e) return;
+      const key = `${state.currentBook.abbrev}:${id}`;
+      const idx = state.bookmarks.findIndex(b => b.key === key);
+      if (idx >= 0) state.bookmarks.splice(idx, 1);
+      else state.bookmarks.push({ key, id, book: state.currentBook.abbrev, n: e.n || e.h, a: e.a });
+      localStorage.setItem('mm_bm', JSON.stringify(state.bookmarks));
+      if (state.activeEntry) renderReader();
+      if (!$('view-bookmarks').classList.contains('hidden')) renderBookmarks();
+    };
+
+    function highlight(text, terms) {
+      let out = esc(text);
+      terms.forEach(t => {
+        const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+        out = out.replace(re, '<mark>$1</mark>');
+      });
+      return out;
+    }
+
+    function renderSymSearch() {
+      const q = $('symSearchInput').value.trim().toLowerCase();
+      if (q.length < 3) {
+        $('symResults').innerHTML = '<div class="status">Type at least 3 letters (e.g. "worse after sleep", "thirstless").</div>';
+        return;
+      }
+      const terms = q.split(/\s+/).filter(Boolean);
+      const hits = [];
+      for (const e of state.entries) {
+        e.s.forEach((sec, idx) => {
+          const full = (sec.h + ' ' + sec.t).toLowerCase();
+          if (terms.every(t => full.includes(t))) {
+            const pos = sec.t.toLowerCase().indexOf(terms[0]);
+            const start = Math.max(0, pos - 60);
+            const snip = (start > 0 ? '...' : '') + sec.t.slice(start, start + 200) + (start + 200 < sec.t.length ? '...' : '');
+            hits.push({ e, idx, h: sec.h, snip });
+          }
+        });
+      }
+      const slice = hits.slice(0, state.searchLimit);
+      $('symResults').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${hits.length} matching sections</div>` +
+        slice.map(hit => `
+          <div class="card" style="cursor:pointer;" onclick="openEntry(${hit.e.id}, ${hit.idx})">
+            <div class="rem-name">${esc(hit.e.n || hit.e.h)} <span class="rem-abbr">(${esc(hit.e.a)})</span></div>
+            ${hit.h ? `<div class="sec-title" style="margin-top:4px;font-size:12px;">${esc(hit.h)}</div>` : ''}
+            <div style="font-size:13px;line-height:1.5;margin-top:4px;">${highlight(hit.snip, terms)}</div>
+          </div>
+        `).join('') +
+        (hits.length > slice.length ? `<button class="btn-sm" style="width:100%;padding:10px;" onclick="state.searchLimit+=50;renderSymSearch()">Load more results</button>` : '');
+    }
+    let symTimer;
+    $('symSearchInput').oninput = () => { state.searchLimit = 50; clearTimeout(symTimer); symTimer = setTimeout(renderSymSearch, 200); };
+
+    function renderBookmarks() {
+      if (!state.bookmarks.length) { $('bmList').innerHTML = '<div class="status">No saved remedies yet. Open any remedy and tap ☆ Save.</div>'; return; }
+      $('bmList').innerHTML = '<div class="list-box">' + state.bookmarks.map(b => `
+        <button class="rem-row" onclick="jumpBookmark('${esc(b.book)}', ${b.id})">
+          <div><div class="rem-name">${esc(b.n)}</div><div class="rem-abbr">${esc(b.a)} · ${esc(b.book)}</div></div>
+          <span style="color:var(--muted)">›</span>
+        </button>
+      `).join('') + '</div>';
+    }
+    window.jumpBookmark = async (book, id) => {
+      if (state.currentBook?.abbrev !== book) { $('bookSelect').value = book; await loadBook(book); }
+      openEntry(id);
+    };
+
+    function switchTab(tab) {
+      ['index','search','bookmarks'].forEach(t => $(`view-${t}`).classList.toggle('hidden', t !== tab));
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      if (tab === 'index') renderIndex();
+      else {
+        $('backBtn').classList.add('hidden');
+        $('subTitle').textContent = tab === 'search' ? 'Symptom Search' : 'Bookmarks';
+      }
+      if (tab === 'bookmarks') renderBookmarks();
+    }
+    document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+    init();
+  </script>
+</body>
+</html>
