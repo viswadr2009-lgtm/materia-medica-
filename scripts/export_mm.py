@@ -107,6 +107,33 @@ def clean_html(s):
   lines = [re.sub(r"\s+", " ", ln).strip() for ln in s.splitlines()]
   return "\n".join(ln for ln in lines if ln)
 
+def parse_allen_block(name, raw_html):
+  text = clean_html(raw_html)
+  lines = [ln.lstrip("#").strip() for ln in text.splitlines() if ln.strip()]
+  lines = [ln for ln in lines if not any(x in ln.lower() for x in (
+    "copyright ©", "homéopathe international", "presented by", "médi-t",
+    "h.i. english", "h.i. français", "buy a copy", "keynotes by h.c. allen"
+  ))]
+  if not lines:
+    return None
+  secs, buf, cur_h = [], [], "Keynotes"
+  for ln in lines:
+    m = re.match(r"^(Relations|Aggravation|Amelioration)\s*[.:-]?\s*(.*)$", ln, re.I)
+    if m:
+      if buf:
+        secs.append({"h": cur_h, "t": "\n".join(buf)})
+        buf = []
+      cur_h = m.group(1).title()
+      if m.group(2):
+        buf.append(m.group(2))
+    else:
+      buf.append(ln)
+  if buf:
+    secs.append({"h": cur_h, "t": "\n".join(buf)})
+  if not secs:
+    return None
+  return {"id": 0, "a": "", "n": name, "h": name, "s": secs}
+
 def scrape_allen():
   base_url = "http://www.homeoint.org/books/allkeyn/"
   idx_url = base_url + "index.htm"
@@ -115,58 +142,46 @@ def scrape_allen():
   except Exception as e:
     print("Failed Allen index:", e)
     return
-  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>#]+\.htm)(?:#[^"\'\s>]*)?["\']?[^>]*>', idx_html, re.I)
-  urls, seen = [], set()
-  for href in links:
-    u = urljoin(idx_url, href)
-    fn = u.split("/")[-1].lower()
-    if u.startswith(base_url) and fn not in ("index.htm", "preface.htm", "intro.htm") and u not in seen:
-      seen.add(u)
-      urls.append(u)
+  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>]+\.htm(?:#[^"\'\s>]*)?)["\']?[^>]*>(.*?)</a>', idx_html, re.I | re.S)
+  by_page = {}
+  skip = {"main", "home", "buy a copy", "english", "français", "preface"}
+  for href, label in links:
+    name = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html.unescape(label))).strip()
+    if not name or len(name) < 3 or name.lower() in skip or (len(name) == 3 and name.isupper()):
+      continue
+    page_part, _, anch = href.partition("#")
+    full_u = urljoin(idx_url, page_part)
+    fn = full_u.split("/")[-1].lower()
+    if not full_u.startswith(base_url) or fn in ("index.htm", "preface.htm", "intro.htm"):
+      continue
+    by_page.setdefault(full_u, []).append((anch.lower(), name))
 
-  def load_page(u):
+  entries = []
+  for u, items in by_page.items():
     try:
       page = fetch_url(u)
       body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
-      text = clean_html(body_m.group(1) if body_m else page)
-      text = re.sub(r"(?i)(?:###\s*)?Keynotes\s+by\s+H\.?\s*C\.?\s*Allen", "\n===REMEDY===\n", text)
-      blocks = text.split("===REMEDY===")
-      out = []
-      for blk in blocks:
-        lines = [ln.lstrip("#").strip() for ln in blk.splitlines() if ln.strip()]
-        lines = [ln for ln in lines if not any(x in ln.lower() for x in (
-          "copyright ©", "homéopathe international", "presented by", "médi-t",
-          "h.i. english", "h.i. français", "buy a copy"
-        ))]
-        if len(lines) < 2:
-          continue
-        name = lines[0].rstrip(".:").strip()
-        if len(name) < 2 or len(name) > 55 or "preface" in name.lower():
-          continue
-        secs, buf, cur_h = [], [], "Keynotes"
-        for ln in lines[1:]:
-          m = re.match(r"^(Relations|Aggravation|Amelioration)\s*[.:-]?\s*(.*)$", ln, re.I)
-          if m:
-            if buf:
-              secs.append({"h": cur_h, "t": "\n".join(buf)})
-              buf = []
-            cur_h = m.group(1).title()
-            if m.group(2):
-              buf.append(m.group(2))
-          else:
-            buf.append(ln)
-        if buf:
-          secs.append({"h": cur_h, "t": "\n".join(buf)})
-        if secs:
-          out.append({"id": 0, "a": "", "n": name, "h": name, "s": secs})
-      return out
+      body = body_m.group(1) if body_m else page
+      anchors = list(re.finditer(r'(?i)<a[^>]+name=["\']?([^"\'\s>]+)["\']?[^>]*>', body))
+      pos_map = {m.group(1).lower(): m.start() for m in anchors}
+      cuts = []
+      for anch, name in items:
+        if anch and anch in pos_map:
+          cuts.append((pos_map[anch], name))
+      cuts.sort(key=lambda x: x[0])
+      if cuts:
+        for i, (start, name) in enumerate(cuts):
+          end = cuts[i + 1][0] if i + 1 < len(cuts) else len(body)
+          e = parse_allen_block(name, body[start:end])
+          if e:
+            entries.append(e)
+      else:
+        e = parse_allen_block(items[0][1], body)
+        if e:
+          entries.append(e)
     except Exception:
-      return []
+      pass
 
-  entries = []
-  with ThreadPoolExecutor(max_workers=6) as ex:
-    for part in ex.map(load_page, urls):
-      entries.extend(part)
   entries.sort(key=lambda x: x["n"].lower())
   for i, e in enumerate(entries, start=1):
     e["id"] = 10000 + i
