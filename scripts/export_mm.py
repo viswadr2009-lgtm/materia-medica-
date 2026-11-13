@@ -85,7 +85,6 @@ for b in books:
     "author": b.get("authorlastname") or "", "lang": b.get("language") or "en",
     "file": fname, "count": len(entries)
   })
-  print(f"Exported OOREP {ab}: {len(entries)}")
 
 def fetch_url(url):
   req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -115,7 +114,7 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
   except Exception as e:
     print(f"Failed index {base_url}: {e}")
     return
-  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>]+\.htm)["\']?[^>]*>(.*?)</a>', idx_html, re.I | re.S)
+  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>#]+\.htm)(?:#[^"\'\s>]*)?["\']?[^>]*>(.*?)</a>', idx_html, re.I | re.S)
   seen, targets = set(), []
   for href, label in links:
     full_url = urljoin(idx_url, href)
@@ -125,15 +124,23 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
     if fname in ("index.htm", "preface.htm", "intro.htm", "author.htm") or full_url in seen:
       continue
     name = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html.unescape(label))).strip()
-    if not name or len(name) < 2 or name.lower() in ("main", "home", "buy a copy", "english", "français"):
+    if not name or name.lower() in ("main", "home", "buy a copy", "english", "français", "aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh", "iii", "kkk", "lll", "mmm", "nnn", "ooo", "ppp", "rrr", "sss", "ttt", "vvv", "zzz"):
       continue
     seen.add(full_url)
     targets.append((full_url, name))
 
   def load_one(item):
-    url, name = item
+    url, link_name = item
     try:
       page = fetch_url(url)
+      t_m = re.search(r"(?is)<title[^>]*>(.*?)</title>", page)
+      page_title = html.unescape(t_m.group(1)).strip() if t_m else ""
+      rem_name = page_title.split(" - ")[0].strip() if " - " in page_title else ""
+      if not rem_name or rem_name.lower().startswith(("lectures", "keynotes")):
+        rem_name = link_name
+      if rem_name.isdigit() or len(rem_name) < 2:
+        rem_name = link_name
+
       body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
       body = body_m.group(1) if body_m else page
       text = clean_html(body)
@@ -146,7 +153,7 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
       for line in filtered:
         if line.startswith("###"):
           cand = line[3:].strip(" .:-")
-          if 2 <= len(cand) <= 45 and cand.lower() != name.lower():
+          if 2 <= len(cand) <= 45 and cand.lower() != rem_name.lower():
             if buf:
               secs.append({"h": cur_h, "t": "\n".join(buf)})
               buf = []
@@ -163,7 +170,7 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
         secs.append({"h": cur_h, "t": "\n".join(buf)})
       if not secs:
         return None
-      return {"id": 0, "a": "", "n": name, "h": name, "s": secs}
+      return {"id": 0, "a": "", "n": rem_name, "h": rem_name, "s": secs}
     except Exception:
       return None
 
