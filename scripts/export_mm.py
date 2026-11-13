@@ -107,24 +107,95 @@ def clean_html(s):
   lines = [re.sub(r"\s+", " ", ln).strip() for ln in s.splitlines()]
   return "\n".join(ln for ln in lines if ln)
 
-def scrape_homeoint(base_url, abbrev, title, author, id_offset):
+def scrape_allen():
+  base_url = "http://www.homeoint.org/books/allkeyn/"
   idx_url = base_url + "index.htm"
   try:
     idx_html = fetch_url(idx_url)
   except Exception as e:
-    print(f"Failed index {base_url}: {e}")
+    print("Failed Allen index:", e)
+    return
+  links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>#]+\.htm)(?:#[^"\'\s>]*)?["\']?[^>]*>', idx_html, re.I)
+  urls = []
+  seen = set()
+  for href in links:
+    u = urljoin(idx_url, href)
+    fn = u.split("/")[-1].lower()
+    if u.startswith(base_url) and fn not in ("index.htm", "preface.htm", "intro.htm") and u not in seen:
+      seen.add(u)
+      urls.append(u)
+
+  def load_page(u):
+    try:
+      page = fetch_url(u)
+      body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
+      text = clean_html(body_m.group(1) if body_m else page)
+      blocks = re.split(r"(?im)^(?:###\s*)?Keynotes by H\.C\. Allen\s*$", text)
+      out = []
+      for blk in blocks:
+        lines = [ln.lstrip("#").strip() for ln in blk.splitlines() if ln.strip()]
+        lines = [ln for ln in lines if not any(x in ln.lower() for x in (
+          "copyright ©", "homéopathe international", "presented by", "médi-t",
+          "h.i. english", "h.i. français", "buy a copy"
+        ))]
+        if len(lines) < 2:
+          continue
+        name = lines[0].rstrip(".:").strip()
+        if len(name) < 2 or len(name) > 55 or "preface" in name.lower():
+          continue
+        secs, buf, cur_h = [], [], "Keynotes"
+        for ln in lines[1:]:
+          m = re.match(r"^(Relations|Aggravation|Amelioration)\s*[.:-]?\s*(.*)$", ln, re.I)
+          if m:
+            if buf:
+              secs.append({"h": cur_h, "t": "\n".join(buf)})
+              buf = []
+            cur_h = m.group(1).title()
+            if m.group(2):
+              buf.append(m.group(2))
+          else:
+            buf.append(ln)
+        if buf:
+          secs.append({"h": cur_h, "t": "\n".join(buf)})
+        if secs:
+          out.append({"id": 0, "a": "", "n": name, "h": name, "s": secs})
+      return out
+    except Exception:
+      return []
+
+  entries = []
+  with ThreadPoolExecutor(max_workers=6) as ex:
+    for part in ex.map(load_page, urls):
+      entries.extend(part)
+  entries.sort(key=lambda x: x["n"].lower())
+  for i, e in enumerate(entries, start=1):
+    e["id"] = 10000 + i
+  if entries:
+    with open("data/mm_allen.json", "w") as f:
+      json.dump(entries, f, separators=(",", ":"))
+    manifest.append({
+      "abbrev": "allen", "title": "Allen's Keynotes", "author": "H.C. Allen",
+      "lang": "en", "file": "mm_allen.json", "count": len(entries)
+    })
+    print(f"Exported Allen's Keynotes: {len(entries)} remedies")
+
+def scrape_kent():
+  base_url = "http://homeoint.org/books3/kentmm/"
+  idx_url = base_url + "index.htm"
+  try:
+    idx_html = fetch_url(idx_url)
+  except Exception as e:
+    print("Failed Kent index:", e)
     return
   links = re.findall(r'<a[^>]+href=["\']?([^"\'\s>#]+\.htm)(?:#[^"\'\s>]*)?["\']?[^>]*>(.*?)</a>', idx_html, re.I | re.S)
   seen, targets = set(), []
   for href, label in links:
     full_url = urljoin(idx_url, href)
-    if not full_url.startswith(base_url):
-      continue
     fname = full_url.split("/")[-1].lower()
-    if fname in ("index.htm", "preface.htm", "intro.htm", "author.htm") or full_url in seen:
+    if not full_url.startswith(base_url) or fname in ("index.htm", "preface.htm", "intro.htm", "author.htm") or full_url in seen:
       continue
     name = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html.unescape(label))).strip()
-    if not name or name.lower() in ("main", "home", "buy a copy", "english", "français", "aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh", "iii", "kkk", "lll", "mmm", "nnn", "ooo", "ppp", "rrr", "sss", "ttt", "vvv", "zzz"):
+    if not name or name.lower() in ("main", "home", "buy a copy", "english", "français"):
       continue
     seen.add(full_url)
     targets.append((full_url, name))
@@ -136,14 +207,10 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
       t_m = re.search(r"(?is)<title[^>]*>(.*?)</title>", page)
       page_title = html.unescape(t_m.group(1)).strip() if t_m else ""
       rem_name = page_title.split(" - ")[0].strip() if " - " in page_title else ""
-      if not rem_name or rem_name.lower().startswith(("lectures", "keynotes")):
+      if not rem_name or rem_name.lower().startswith("lectures") or rem_name.isdigit():
         rem_name = link_name
-      if rem_name.isdigit() or len(rem_name) < 2:
-        rem_name = link_name
-
       body_m = re.search(r"(?is)<body[^>]*>(.*)</body>", page)
-      body = body_m.group(1) if body_m else page
-      text = clean_html(body)
+      text = clean_html(body_m.group(1) if body_m else page)
       chunks = [c.strip() for c in text.split("\n") if len(c.strip()) > 2]
       filtered = [c for c in chunks if not any(x in c.lower() for x in (
         "copyright ©", "homéopathe international", "presented by", "médi-t",
@@ -181,19 +248,18 @@ def scrape_homeoint(base_url, abbrev, title, author, id_offset):
         entries.append(res)
   entries.sort(key=lambda x: x["n"].lower())
   for i, e in enumerate(entries, start=1):
-    e["id"] = id_offset + i
+    e["id"] = 20000 + i
   if entries:
-    fname = f"mm_{abbrev}.json"
-    with open(f"data/{fname}", "w") as f:
+    with open("data/mm_kentmm.json", "w") as f:
       json.dump(entries, f, separators=(",", ":"))
     manifest.append({
-      "abbrev": abbrev, "title": title, "author": author,
-      "lang": "en", "file": fname, "count": len(entries)
+      "abbrev": "kentmm", "title": "Kent's Lectures on MM", "author": "J.T. Kent",
+      "lang": "en", "file": "mm_kentmm.json", "count": len(entries)
     })
-    print(f"Exported {title}: {len(entries)} remedies")
+    print(f"Exported Kent's Lectures: {len(entries)} remedies")
 
-scrape_homeoint("http://www.homeoint.org/books/allkeyn/", "allen", "Allen's Keynotes", "H.C. Allen", 10000)
-scrape_homeoint("http://homeoint.org/books3/kentmm/", "kentmm", "Kent's Lectures on MM", "J.T. Kent", 20000)
+scrape_allen()
+scrape_kent()
 
 with open("data/mm_manifest.json", "w") as f:
   json.dump(manifest, f, separators=(",", ":"))
